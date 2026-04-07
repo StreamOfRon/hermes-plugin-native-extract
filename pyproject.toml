@@ -3,37 +3,30 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "example-hermes-plugin"
+name = "hermes-plugin-native-extract"
 version = "0.1.0"
-description = "Example Hermes plugin — demonstrates tools, hooks, and bundled skill"
-readme = "README.md"
-license = {text = "MIT"}
-requires-python = ">=3.11"
-authors = [
-    {name = "Your Name", email = "your.email@example.com"},
+description = "Hermes plugin for native web content extraction — no API key required"
+requires-python = ">= 3.11"
+dependencies = [
+    "requests>=2.28",
+    "html-to-markdown",
 ]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-]
-dependencies = []
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
-    "pyyaml>=6.0",
-    "hermes-agent @ git+https://github.com/NousResearch/hermes-agent.git",
+    "pytest",
+    "pyyaml",
+    "hermes-agent",
+]
+enhanced = [
+    "certifi",
 ]
 
 [project.entry-points."hermes_agent.plugins"]
-example_plugin = "plugin"
+native_extract_plugin = "__init__:register"
 
-[tool.setuptools.packages.find]
-include = ["plugin*"]
+[tool.setuptools]
+py-modules = ["__init__", "schemas", "tools"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

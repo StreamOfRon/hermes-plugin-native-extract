@@ -6,11 +6,10 @@ It provides boilerplate for all three Hermes extension layers: **Skills**, **Too
 ## Project Structure
 
 ```
-├── plugin/                 # PLUGIN LAYER — Python code + manifest
-│   ├── plugin.yaml         # Plugin manifest (name, version, tools, hooks)
-│   ├── __init__.py         # register(ctx) entry point
-│   ├── tools.py            # Tool handler implementations
-│   └── schemas.py          # OpenAI-format tool schema definitions
+├── plugin.yaml             # Plugin manifest (name, version, tools, hooks)
+├── __init__.py             # register(ctx) entry point
+├── tools.py                # Tool handler implementations
+├── schemas.py              # OpenAI-format tool schema definitions
 │
 ├── skill/                  # SKILL LAYER — Markdown instructions for AI
 │   └── SKILL.md            # Skill definition with YAML frontmatter
@@ -24,9 +23,11 @@ It provides boilerplate for all three Hermes extension layers: **Skills**, **Too
 └── AGENTS.md               # This file
 ```
 
+Plugin files live at the **repository root** — no `plugin/` subdirectory. The entire directory is the plugin.
+
 ## How to Add a New Tool
 
-1. **Define the schema** in `plugin/schemas.py`:
+1. **Define the schema** in `schemas.py`:
    ```python
    MY_TOOL_SCHEMA = {
        "name": "my_tool",
@@ -41,7 +42,7 @@ It provides boilerplate for all three Hermes extension layers: **Skills**, **Too
    }
    ```
 
-2. **Implement the handler** in `plugin/tools.py`:
+2. **Implement the handler** in `tools.py`:
    ```python
    def my_tool_handler(args: dict, **kwargs) -> str:
        try:
@@ -51,10 +52,10 @@ It provides boilerplate for all three Hermes extension layers: **Skills**, **Too
            return json.dumps({"error": str(e)})
    ```
 
-3. **Register in `plugin/__init__.py`**:
+3. **Register in `__init__.py`**:
    ```python
-   from .schemas import MY_TOOL_SCHEMA
-   from .tools import my_tool_handler
+   from schemas import MY_TOOL_SCHEMA
+   from tools import my_tool_handler
 
    def register(ctx):
        ctx.register_tool(
@@ -65,7 +66,7 @@ It provides boilerplate for all three Hermes extension layers: **Skills**, **Too
        )
    ```
 
-4. **Update `plugin/plugin.yaml`**:
+4. **Update `plugin.yaml`**:
    ```yaml
    provides_tools:
      - my_tool

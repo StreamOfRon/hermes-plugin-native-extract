@@ -1,8 +1,0 @@
-name: example_plugin
-version: 0.1.0
-description: Example Hermes plugin — demonstrates tools, hooks, and bundled skill
-author: Your Name
-provides_tools:
-  - example_tool
-provides_hooks:
-  - post_tool_call
