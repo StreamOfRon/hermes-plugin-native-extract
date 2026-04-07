@@ -1,6 +1,6 @@
-name: native_extract_plugin
+name: native_extract
 version: 0.1.0
-description: Extract web page content using native HTTP requests — no API key required
+description: Extract web page content using python-native HTTP requests and HTML parsing.
 author: Your Name
 provides_tools:
   - native_extract
