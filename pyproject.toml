@@ -16,7 +16,6 @@ dependencies = [
 dev = [
     "pytest",
     "pyyaml",
-    "hermes-agent",
 ]
 enhanced = [
     "certifi",
