@@ -4,8 +4,8 @@ import logging
 import shutil
 from pathlib import Path
 
-from schemas import NATIVE_EXTRACT_SCHEMA
-from tools import native_extract_handler
+from .schemas import NATIVE_EXTRACT_SCHEMA
+from .tools import native_extract_handler
 
 logger = logging.getLogger(__name__)
 
