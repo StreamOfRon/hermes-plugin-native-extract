@@ -2,7 +2,7 @@
 name: native-extract
 description: Extract content from web pages using native HTTP requests — no API key required
 author: Your Name
-version: 0.1.0
+version: 0.1.1
 tags:
   - web
   - extraction
@@ -33,8 +33,8 @@ provides_commands:
 
 - **Max 5 URLs per call** — if the user provides more, process in batches
 - **No JavaScript rendering** — this tool fetches raw HTML/JSON. SPA content may be incomplete
-- **html-to-markdown required** — if not installed, the tool returns an error
-- **SSL errors** — may occur on some Python installations; suggest `pip install certifi`
+- **html-to-markdown required** — if not installed, the tool returns an error telling the user to run `hermes pm repair`, then restart Hermes (bare `pip install` targets the wrong environment)
+- **SSL errors** — may occur on some Python installations; `certifi` is a hardening dep, not required
 - **Rate limiting** — some sites may block or rate-limit automated requests
 - **Authentication required** — this tool cannot access pages requiring login
 - **No retry logic** — transient failures are reported as errors; the user can retry

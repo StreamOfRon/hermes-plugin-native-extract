@@ -4,37 +4,39 @@ Extract web page content using native HTTP requests — no API key required.
 
 ## What it does
 
-The `native_extract` tool fetches URLs and converts HTML to markdown. It's a
-no-dependency-required fallback for web content extraction:
+The `native_extract` tool fetches URLs and converts HTML to markdown:
 
+- Requires no API key or configuration
 - Fetches URLs with a browser-like User-Agent
 - Converts HTML to markdown using `html-to-markdown`
 - Passes through JSON and markdown responses unchanged
 - Supports up to 5 URLs per call
 
-## Installation
+## Installation & dependencies
 
-### Local install
-
-```bash
-make install-local
-```
-
-This copies the plugin to `~/.hermes/plugins/native_extract_plugin/`.
-
-### Via pip
+The plugin declares its Python dependencies (`requests`, `html-to-markdown`)
+in `pyproject.toml`. `hermes plugins install` asks you to consent to PM
+installing them into Hermes's shared environment (dependencies are never
+installed behind your back):
 
 ```bash
-pip install .
+hermes plugins install <this-repo-url>
+
+# Non-interactive (SSH automation, CI, Docker entrypoints):
+hermes plugins install <this-repo-url> --yes-deps
 ```
 
-### Optional: enhanced SSL support
+**If the tool reports the libraries are missing:**
 
-```bash
-pip install ".[enhanced]"
-```
+1. Run `hermes pm repair`, then **restart Hermes**. Discovery never installs
+   dependencies — env sync happens through PM only.
+2. If PM recorded the plugin without its dependencies (e.g. installed with
+   `--no-deps`, or from before they were declared), reinstall with
+   `--yes-deps` so PM re-admits the dependency graph.
 
-This installs `certifi` for improved SSL certificate verification.
+Note: a bare `pip install html-to-markdown` does **not** fix this — Hermes
+runs plugins inside its PM-managed venv, so plain pip targets the wrong
+environment.
 
 ## Tool: `native_extract`
 

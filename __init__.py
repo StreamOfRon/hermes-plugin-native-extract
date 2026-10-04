@@ -4,11 +4,14 @@ import logging
 import shutil
 from pathlib import Path
 
-from .schemas import NATIVE_EXTRACT_SCHEMA
-from .tools import native_extract_handler
+try:
+    from .schemas import NATIVE_EXTRACT_SCHEMA
+    from .tools import native_extract_handler
+except ImportError:  # top-level module import (tests, direct file access)
+    from schemas import NATIVE_EXTRACT_SCHEMA
+    from tools import native_extract_handler
 
 logger = logging.getLogger(__name__)
-
 _call_log = []
 
 
@@ -21,7 +24,16 @@ def _on_post_tool_call(tool_name, args, result, task_id, **kwargs):
 
 
 def _check_native_extract_available() -> bool:
-    """Native extract is always available (no API key needed)."""
+    """Passive deps probe (check_fn contract: never installs).
+
+    Gates the tool schema on the declared runtime dependencies being
+    importable in Hermes's PM-managed environment.
+    """
+    try:
+        import html_to_markdown  # noqa: F401
+        import requests  # noqa: F401
+    except ImportError:
+        return False
     return True
 
 
@@ -30,7 +42,7 @@ def _install_skill():
     try:
         from hermes_cli.config import get_hermes_home
         dest = get_hermes_home() / "skills" / "native_extract" / "SKILL.md"
-    except Exception:
+    except Exception:  # noqa: BLE001 — plugin must load even without hermes_cli
         dest = Path.home() / ".hermes" / "skills" / "native_extract" / "SKILL.md"
     if dest.exists():
         return  # don't overwrite user edits

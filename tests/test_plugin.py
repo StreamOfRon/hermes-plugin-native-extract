@@ -1,9 +1,8 @@
 """Tests for the native_extract plugin."""
 
 import json
-import pytest
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 PLUGIN_DIR = Path(__file__).parent.parent
 
@@ -47,7 +46,7 @@ class TestPluginInit:
         assert init_path.exists(), "__init__.py must exist"
 
     def test_register_is_callable(self):
-        from __init__ import register
+        from native_extract import register
         assert callable(register), "register must be callable"
 
 
@@ -154,8 +153,9 @@ class TestToolHandlers:
         assert data["data"][0]["content"] == '{"key": "value"}'
 
     def test_handler_ssl_error(self):
-        from tools import native_extract_handler
         import requests
+
+        from tools import native_extract_handler
         with patch("requests.Session") as mock_session:
             mock_session.return_value.get.side_effect = requests.exceptions.SSLError("SSL error")
             result = native_extract_handler({"urls": ["https://bad-ssl.example.com"]})
@@ -205,9 +205,36 @@ class TestToolHandlers:
         data = json.loads(result)
         assert "# Title" in data["data"][0]["content"]
 
-    def test_handler_missing_html_to_markdown_returns_error(self):
+    def test_handler_real_library_conversion_yields_string_markdown(self):
+        """With the real html-to-markdown installed, handler must produce
+        JSON-serializable string markdown (ConversionResult compat)."""
+
         from tools import native_extract_handler
+        html = "<html><body><h1>Real</h1><p>Body</p></body></html>"
+        with patch("requests.Session") as mock_session:
+            mock_session.return_value.get.return_value = self._make_mock_response(text=html)
+            result = native_extract_handler({"urls": ["https://example.com"]})
+        data = json.loads(result)  # must parse: content can't be a ConversionResult
+        content = data["data"][0]["content"]
+        assert isinstance(content, str) and len(content) > 0
+
+        # Also pin the .content extraction path (older libs return plain str).
+        class ConversionResult:  # mimic 3.x shape
+            def __init__(self, content):
+                self.content = content
+
+        with patch("requests.Session") as mock_session:
+            mock_session.return_value.get.return_value = self._make_mock_response()
+            with patch.dict("sys.modules", {"html_to_markdown": MagicMock(
+                    convert=lambda x: ConversionResult("# Title\n\nParagraph"))}):
+                result = native_extract_handler({"urls": ["https://example.com"]})
+        data = json.loads(result)
+        assert "# Title" in data["data"][0]["content"]
+
+    def test_handler_missing_html_to_markdown_returns_error(self):
         import sys
+
+        from tools import native_extract_handler
         original = sys.modules.get("html_to_markdown")
         try:
             sys.modules["html_to_markdown"] = None
@@ -215,6 +242,12 @@ class TestToolHandlers:
             data = json.loads(result)
             assert "error" in data
             assert "html-to-markdown" in data["error"].lower()
+            assert "hermes pm repair" in data["error"].lower(), (
+                "error must point at the Hermes-native remedy, not bare pip"
+            )
+            assert "pip install" not in data["error"].lower(), (
+                "bare pip install targets the wrong environment inside Hermes"
+            )
         finally:
             if original is not None:
                 sys.modules["html_to_markdown"] = original
@@ -225,16 +258,44 @@ class TestToolHandlers:
 class TestCheckFunction:
     """Test the availability check function."""
 
-    def test_check_always_returns_true(self):
-        from __init__ import _check_native_extract_available
+    def test_check_true_when_deps_importable(self):
+        from native_extract import _check_native_extract_available
         assert _check_native_extract_available() is True
+
+    def test_check_false_when_html_to_markdown_missing(self):
+        import sys
+
+        from native_extract import _check_native_extract_available
+        original = sys.modules.get("html_to_markdown")
+        try:
+            sys.modules["html_to_markdown"] = None
+            assert _check_native_extract_available() is False
+        finally:
+            if original is not None:
+                sys.modules["html_to_markdown"] = original
+            else:
+                sys.modules.pop("html_to_markdown", None)
+
+    def test_check_false_when_requests_missing(self):
+        import sys
+
+        from native_extract import _check_native_extract_available
+        original = sys.modules.get("requests")
+        try:
+            sys.modules["requests"] = None
+            assert _check_native_extract_available() is False
+        finally:
+            if original is not None:
+                sys.modules["requests"] = original
+            else:
+                sys.modules.pop("requests", None)
 
 
 class TestHookRegistration:
     """Test the post_tool_call hook."""
 
     def test_hook_tracks_calls(self):
-        from __init__ import _on_post_tool_call, _call_log
+        from native_extract import _call_log, _on_post_tool_call
         _call_log.clear()
         _on_post_tool_call("some_tool", {"arg": "val"}, '{"ok": true}', "task-1")
         assert len(_call_log) == 1
@@ -242,7 +303,7 @@ class TestHookRegistration:
         assert _call_log[0]["session"] == "task-1"
 
     def test_hook_caps_at_100(self):
-        from __init__ import _on_post_tool_call, _call_log
+        from native_extract import _call_log, _on_post_tool_call
         _call_log.clear()
         for i in range(150):
             _on_post_tool_call(f"tool_{i}", {}, "{}", f"task-{i}")

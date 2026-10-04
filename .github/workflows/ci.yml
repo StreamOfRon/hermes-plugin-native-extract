@@ -24,7 +24,10 @@ jobs:
       - name: Install dependencies
         run: |
           uv venv
-          uv pip install pytest pyyaml
+          uv pip install pytest pyyaml ruff
+
+      - name: Run linter
+        run: uv run ruff check . --exclude .venv
 
       - name: Run tests
         run: uv run pytest tests/ -v

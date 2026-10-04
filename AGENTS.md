@@ -1,189 +1,68 @@
-# AGENTS.md — Instructions for AI Coding Agents
+# AGENTS.md — Hermes Plugin (Native Extract)
 
-This project is a **Hermes plugin template** created from `hermes-plugin-template`.
-It provides boilerplate for all three Hermes extension layers: **Skills**, **Tools**, and **Plugins**.
+Hermes plugins are imported directly from GitHub by path convention — no Python package building required.
 
 ## Project Structure
 
 ```
+├── __init__.py             # Plugin entry point — register(ctx) function
 ├── plugin.yaml             # Plugin manifest (name, version, tools, hooks)
-├── __init__.py             # register(ctx) entry point
 ├── tools.py                # Tool handler implementations
 ├── schemas.py              # OpenAI-format tool schema definitions
-│
-├── skill/                  # SKILL LAYER — Markdown instructions for AI
-│   └── SKILL.md            # Skill definition with YAML frontmatter
-│
-├── tests/                  # TEST SCAFFOLDING
-│   ├── test_plugin.py      # Plugin loading + tool registration tests
-│   └── test_skill.py       # Skill frontmatter + structure tests
-│
-├── pyproject.toml          # Pip distribution config
-├── Makefile                # Convenience targets
+├── skill/SKILL.md          # Bundled skill with YAML frontmatter
+├── tests/                  # Test scaffolding
 └── AGENTS.md               # This file
 ```
 
-Plugin files live at the **repository root** — no `plugin/` subdirectory. The entire directory is the plugin.
+Plugin files live at the repository root. The entire directory is the plugin.
 
-## How to Add a New Tool
+## Adding a Tool
 
-1. **Define the schema** in `schemas.py`:
-   ```python
-   MY_TOOL_SCHEMA = {
-       "name": "my_tool",
-       "description": "What this tool does — be specific so the LLM knows when to use it",
-       "parameters": {
-           "type": "object",
-           "properties": {
-               "param_name": {"type": "string", "description": "..."},
-           },
-           "required": ["param_name"],
-       },
-   }
-   ```
+1. Define schema in `schemas.py` — see existing schema for format
+2. Implement handler in `tools.py` — handlers must return JSON strings via `json.dumps()`
+3. Register in `__init__.py` using `ctx.register_tool()`
+4. Add tool name to `plugin.yaml` under `provides_tools`
 
-2. **Implement the handler** in `tools.py`:
-   ```python
-   def my_tool_handler(args: dict, **kwargs) -> str:
-       try:
-           # Process args, return json.dumps(result)
-           return json.dumps({"status": "success", "data": ...})
-       except Exception as e:
-           return json.dumps({"error": str(e)})
-   ```
+Handler requirements:
+- Signature: `def handler(args: dict, **kwargs) -> str`
+- Return: JSON-encoded string via `json.dumps()`
+- Errors: Catch all exceptions and return error JSON
 
-3. **Register in `__init__.py`**:
-   ```python
-   from schemas import MY_TOOL_SCHEMA
-   from tools import my_tool_handler
+## Adding a Skill
 
-   def register(ctx):
-       ctx.register_tool(
-           name=MY_TOOL_SCHEMA["name"],
-           toolset="my_plugin",        # plugin name, NOT tool name
-           schema=MY_TOOL_SCHEMA,
-           handler=my_tool_handler,
-       )
-   ```
+1. Create `skill/SKILL.md` with YAML frontmatter (see existing file for format)
+2. Install during plugin registration via `_install_skill()` helper in `__init__.py`
 
-4. **Update `plugin.yaml`**:
-   ```yaml
-   provides_tools:
-     - my_tool
-   ```
+Required frontmatter fields: `name`, `description`  
+Optional fields: `author`, `version`, `tags`, `requires_tools`, `provides_commands`
 
-## How to Add a New Skill
+## Adding Lifecycle Hooks
 
-1. Create a directory under `~/.hermes/skills/<skill-name>/`
-2. Add a `SKILL.md` with YAML frontmatter:
-   ```yaml
-   ---
-   name: my-skill
-   description: What this skill does
-   ---
-   ```
-3. Required frontmatter fields: `name`, `description`
-4. Optional fields: `author`, `version`, `tags`, `requires_tools`, `provides_commands`
-5. Standard sections: `## When to Use`, `## Procedure`, `## Pitfalls`, `## Verification`
-6. Field constraints: `name` ≤ 50 chars, `description` ≤ 200 chars
+Register hooks in `__init__.py` using `ctx.register_hook()`:
+- `pre_tool_call` / `post_tool_call` — wrap tool execution
+- `pre_llm_call` / `post_llm_call` — wrap LLM calls
+- `on_session_start` / `on_session_end` — session lifecycle
 
-### Bundle a skill with your plugin
+See `__init__.py` for hook registration examples.
 
-Include a `skill.md` (or `SKILL.md`) in your plugin directory and install it during registration:
+## Testing
 
-```python
-import shutil
-from pathlib import Path
-
-def _install_skill():
-    """Copy our skill to ~/.hermes/skills/ on first load."""
-    try:
-        from hermes_cli.config import get_hermes_home
-        dest = get_hermes_home() / "skills" / "my-plugin" / "SKILL.md"
-    except Exception:
-        dest = Path.home() / ".hermes" / "skills" / "my-plugin" / "SKILL.md"
-    if dest.exists():
-        return  # don't overwrite user edits
-    source = Path(__file__).parent / "skill.md"
-    if source.exists():
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, dest)
-
-def register(ctx):
-    ctx.register_tool(...)
-    _install_skill()
-```
-
-## How to Add Lifecycle Hooks
-
-In `plugin/__init__.py`:
-
-```python
-import logging
-logger = logging.getLogger(__name__)
-
-def on_session_start(session_id, model, platform, **kwargs):
-    logger.info("Session started: %s", session_id)
-
-def register(ctx):
-    # ... tool registration ...
-    ctx.register_hook("on_session_start", on_session_start)
-```
-
-Available hooks:
-
-| Hook | When | Arguments | Return |
-|------|------|-----------|--------|
-| `pre_tool_call` | Before any tool runs | `tool_name`, `args`, `task_id` | — |
-| `post_tool_call` | After any tool returns | `tool_name`, `args`, `result`, `task_id` | — |
-| `pre_llm_call` | Once per turn, before LLM loop | `session_id`, `user_message`, `conversation_history`, `is_first_turn`, `model`, `platform` | `{"context": "..."}` |
-| `post_llm_call` | Once per turn, after LLM loop | `session_id`, `user_message`, `assistant_response`, `conversation_history`, `model`, `platform` | — |
-| `on_session_start` | New session created | `session_id`, `model`, `platform` | — |
-| `on_session_end` | End of session | `session_id`, `completed`, `interrupted`, `model`, `platform` | — |
-
-The `pre_llm_call` hook can inject context: return a dict with `"context"` key to append to the system prompt.
-If a hook crashes, it's logged and skipped; other hooks and the agent continue normally.
-
-## Handler Contract
-
-- **Signature**: `def handler(args: dict, **kwargs) -> str`
-- **Return**: MUST return a JSON-encoded string (`json.dumps(...)`)
-- **Errors**: MUST NOT raise exceptions; catch and return error JSON
-- **args**: Dict of parameters matching the schema definition
-- **kwargs**: Accept `**kwargs` for forward compatibility
-
-## Testing Patterns
-
-- Use `tmp_path` fixture for temporary directories
-- Monkeypatch `HERMES_HOME` to avoid affecting real installation
-- Create `PluginManager()` directly (not global singleton)
-- Test: discovery, loading, tool registration, tool execution, hook invocation
-
-```python
-@pytest.fixture
-def hermes_home(tmp_path, monkeypatch):
-    hermes = tmp_path / ".hermes"
-    hermes.mkdir()
-    monkeypatch.setenv("HERMES_HOME", str(hermes))
-    return hermes
-```
+Tests validate plugin structure and handler contracts:
+- `tests/test_plugin.py` — plugin.yaml parsing, handler contracts
+- `tests/test_skill.py` — SKILL.md frontmatter validation
 
 ## Common Pitfalls
 
-- **Hardcoded `~/.hermes`**: Never hardcode paths; use `HERMES_HOME` env var
-- **Missing `name` in schema**: Every tool schema MUST have a `name` field
-- **Raising in handlers**: Handlers must catch all exceptions and return error JSON
-- **Non-JSON returns**: Handlers MUST return `json.dumps(...)`, not raw strings/dicts
-- **Duplicate tool names**: Tool names must be unique across all loaded plugins
-- **Missing frontmatter delimiters**: SKILL.md must start and end frontmatter with `---`
-- **Using tool name as toolset**: `toolset` should be the plugin name, not the tool name
-- **Missing `**kwargs`**: Handlers must accept `**kwargs` for forward compatibility
-- **Vague schema descriptions**: Be specific so the LLM knows when to use your tool
+- Never hardcode `~/.hermes` — use `HERMES_HOME` environment variable
+- Tool schemas must include a `name` field
+- Handlers must catch exceptions and return error JSON (never raise)
+- `toolset` parameter should be the plugin name, not the tool name
+- Handlers must accept `**kwargs` for forward compatibility
+- SKILL.md must have frontmatter delimited by `---`
 
-## Key Hermes Source Files (for reference)
+## Reference
 
-When implementing advanced patterns, reference the Hermes agent source:
-- Plugin loading: `hermes_cli/plugins.py`
-- Plugin context: `PluginContext` class in `hermes_cli/plugins.py`
+- Hermes plugin loading: `hermes_cli/plugins.py`
+- Plugin context API: `PluginContext` class in `hermes_cli/plugins.py`
 - Skill loading: `hermes_cli/skills_config.py`
 - Hook system: `invoke_hook()` in `hermes_cli/plugins.py`

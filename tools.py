@@ -22,14 +22,18 @@ def native_extract_handler(args: dict, **kwargs) -> str:
         import requests
     except ImportError:
         return json.dumps({
-            "error": "The 'requests' library is required but not installed. Run: pip install requests"
+            "error": "The 'requests' library is required but not installed. "
+                     "Run 'hermes pm repair', then restart Hermes — or reinstall the "
+                     "plugin with 'hermes plugins install <url> --yes-deps'."
         })
 
     try:
         import html_to_markdown
     except ImportError:
         return json.dumps({
-            "error": "The 'html-to-markdown' library is required but not installed. Run: pip install html-to-markdown"
+            "error": "The 'html-to-markdown' library is required but not installed. "
+                     "Run 'hermes pm repair', then restart Hermes — or reinstall the "
+                     "plugin with 'hermes plugins install <url> --yes-deps'."
         })
 
     if not isinstance(args, dict):
@@ -66,7 +70,10 @@ def native_extract_handler(args: dict, **kwargs) -> str:
             if "application/json" in ct or "text/markdown" in ct:
                 content = resp.text
             else:
-                content = html_to_markdown.convert(resp.text)
+                converted = html_to_markdown.convert(resp.text)
+                # html-to-markdown>=3 returns a ConversionResult; earlier
+                # versions returned a plain string. Accept both shapes.
+                content = converted.content if hasattr(converted, "content") else converted
 
             results.append({
                 "url": url,
@@ -86,7 +93,7 @@ def native_extract_handler(args: dict, **kwargs) -> str:
                     f"Details: {e}"
                 ),
             })
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 — handler contract: never raise
             logger.warning("Native extract failed for %s: %s", url, e)
             results.append({
                 "url": url,

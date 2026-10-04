@@ -1,5 +1,5 @@
 name: native_extract
-version: 0.1.0
+version: 0.1.1
 description: Extract web page content using python-native HTTP requests and HTML parsing.
 author: Your Name
 provides_tools:
